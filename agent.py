@@ -1,27 +1,44 @@
 #!/home/fg/miniconda3/envs/llm/bin/python
 
-import os, signal, sys, select
+import os, signal, sys, select, json
 from openai import OpenAI
 import readline
+from datetime import datetime
 
 # Set UTF-8 encoding
 sys.stdin.reconfigure(encoding='utf-8')
 sys.stdout.reconfigure(encoding='utf-8')
 
 # Set up SIGQUIT handler for ^D
+response_interrupted = False
+
 def handle_quit(signum, frame):
     print("\nReceived SIGQUIT (^D), quitting gracefully...")
     exit(0)
 
 # Set up SIGINT handler for ^C
 def handle_interrupt(signum, frame):
-    print("\nReceived SIGINT (^C), quitting...")
-    exit(0)
+    global response_interrupted
+    response_interrupted = True
+    print("\nResponse interrupted by ^C, stopping...")
 
 signal.signal(signal.SIGQUIT, handle_quit)
 signal.signal(signal.SIGINT, handle_interrupt)
 
 API_PATH="/home/fg/import/ali_apikey"
+
+# Create log directory if it doesn't exist
+os.makedirs('log', exist_ok=True)
+
+# Set up logging
+current_time = datetime.now()
+log_filename = current_time.strftime('%Y%m%d_%H%M.log')
+log_path = os.path.join('log', log_filename)
+
+def write_to_log(conversation_pair):
+    """Write a conversation pair to the log file"""
+    with open(log_path, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(conversation_pair, ensure_ascii=False) + '\n')
 
 with open(API_PATH, 'r') as file:
     my_api_key = file.read().strip() 
@@ -36,6 +53,12 @@ reasoning_content = ""
 answer_content = ""  
 is_answering = False 
 
+# Initialize conversation history
+conversation_history = []
+MAX_HISTORY = 10  # Keep last 10 exchanges
+
+def format_message(role, content):
+    return {"role": role, "content": content}
 
 def read_file_content(file_spec):
     # Remove '@:' prefix and split by ':'
@@ -84,9 +107,7 @@ def get_multi_line_input_readline(prompt):
     try:
         while True:
             line = input()
-            if line in ['quit', 'q']:
-                exit(0)
-            elif line.startswith('@:'):
+            if line.startswith('@:'):
                 content = read_file_content(line)
                 if content:
                     lines.append(content)
@@ -99,41 +120,68 @@ def get_multi_line_input_readline(prompt):
                 lines.append(line+"\n")
             # print(lines)
     except EOFError:
-        exit(0)
+        handle_quit(0, None)
     return '\n'.join(lines)
 
 while True:
-    user_input = get_multi_line_input_readline('>> ')
+    user_input = get_multi_line_input_readline('\U0001F60A User>> ')
+    response_interrupted = False
+    
+    # Add user message to history
+    conversation_history.append(format_message("user", user_input))
+    
+    # Keep only last MAX_HISTORY messages
+    if len(conversation_history) > MAX_HISTORY * 2:  # *2 because each exchange has 2 messages
+        conversation_history = conversation_history[-MAX_HISTORY * 2:]
+    
     completion = client.chat.completions.create(
         model="deepseek-v3",  
-        messages=[
-            {"role": "user", "content": user_input}
-        ],
+        messages=conversation_history,  # Pass the entire conversation history
         stream=True,
     )
 
     has_thinking_content = False
-    for chunk in completion:
-        if not chunk.choices:
-            print("\nUsage:")
-            print(chunk.usage)
-        else:
-            delta = chunk.choices[0].delta
-            if hasattr(delta, 'reasoning_content') and delta.reasoning_content != None:
-                if not has_thinking_content:
-                    print("\n>>Thinking<<:\n")
-                    has_thinking_content = True
-                print(delta.reasoning_content, end='', flush=True)
-                reasoning_content += delta.reasoning_content
+    current_response = ""  # Collect the complete response
+    
+    try:
+        for chunk in completion:
+            if response_interrupted:
+                break
+                
+            if not chunk.choices:
+                print("\nUsage:")
+                print(chunk.usage)
             else:
-                if delta.content != "" and is_answering == False:
-                    print("\n>>Answer<<:\n")
-                    is_answering = True
-                print(delta.content, end='', flush=True)
-                answer_content += delta.content
+                delta = chunk.choices[0].delta
+                if hasattr(delta, 'reasoning_content') and delta.reasoning_content != None:
+                    if not has_thinking_content:
+                        print("\n\U0001F916 Thinking:\n")
+                        has_thinking_content = True
+                    print(delta.reasoning_content, end='', flush=True)
+                    reasoning_content += delta.reasoning_content
+                else:
+                    if delta.content != "" and is_answering == False:
+                        print("\n\U0001F916 Answer:\n")
+                        is_answering = True
+                    print(delta.content, end='', flush=True)
+                    answer_content += delta.content
+                    current_response += delta.content
+    except Exception as e:
+        print(f"\nError during response generation: {e}")
+        response_interrupted = True
 
+    # Only add assistant's response to history if not interrupted
+    if not response_interrupted:
+        assistant_message = format_message("assistant", current_response)
+        conversation_history.append(assistant_message)
+        # Log the successful conversation pair
+        write_to_log(conversation_history[-2])  # User message
+        write_to_log(conversation_history[-1])  # Assistant response
+    else:
+        # Remove the user's prompt if response was interrupted
+        conversation_history.pop()
+    
     print("\n")
-
     reasoning_content = ""
     answer_content = ""
     is_answering = False
