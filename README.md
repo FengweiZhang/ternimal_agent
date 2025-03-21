@@ -10,7 +10,7 @@ python agent.py
 
 连续输入三个换行符，可以结束输入
 
-可以输入
+可以在单独的一行输入
 ```
 @:file_path:line_start:line_end
 ```
