@@ -1,6 +1,6 @@
 #!/home/fg/miniconda3/envs/llm/bin/python
 
-import os, signal, sys
+import os, signal, sys, select
 from openai import OpenAI
 import readline
 
@@ -71,7 +71,14 @@ def read_file_content(file_spec):
         print(f"Error reading file: {e}")
         return None
 
+def clear_input_buffer():
+    # Clear any pending input
+    while select.select([sys.stdin], [], [], 0.0)[0]:
+        sys.stdin.read(1)
+
 def get_multi_line_input_readline(prompt):
+    # Clear any pending input before starting
+    clear_input_buffer()
     print(prompt)
     lines = []
     try:
