@@ -4,6 +4,9 @@ import os, signal, sys, select, json
 from openai import OpenAI
 import readline
 from datetime import datetime
+from pathlib import Path
+
+API_PATH="/home/fg/import/ali_apikey"
 
 # Set UTF-8 encoding
 sys.stdin.reconfigure(encoding='utf-8')
@@ -25,15 +28,16 @@ def handle_interrupt(signum, frame):
 signal.signal(signal.SIGQUIT, handle_quit)
 signal.signal(signal.SIGINT, handle_interrupt)
 
-API_PATH="/home/fg/import/ali_apikey"
-
+script_path = Path(__file__).resolve()
+script_dir = script_path.parent
 # Create log directory if it doesn't exist
-os.makedirs('log', exist_ok=True)
+log_dir = os.path.join(script_dir, 'log')
+os.makedirs(log_dir, exist_ok=True)
 
 # Set up logging
 current_time = datetime.now()
 log_filename = current_time.strftime('%Y%m%d_%H%M.log')
-log_path = os.path.join('log', log_filename)
+log_path = os.path.join(log_dir, log_filename)
 
 def write_to_log(conversation_pair):
     """Write a conversation pair to the log file"""
@@ -112,9 +116,9 @@ def get_multi_line_input_readline(prompt):
                 if content:
                     lines.append(content)
             elif line == '':
-                print()  
                 if len(lines) >= 1 and lines[-1] == '\n':
                     break
+                print()
                 lines.append("\n")
             else:
                 lines.append(line+"\n")
