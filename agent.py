@@ -1,6 +1,6 @@
 #!/home/fg/miniconda3/envs/llm/bin/python
 
-import os, signal, sys, select, json
+import os, signal, sys, select, json, subprocess
 from openai import OpenAI
 import readline
 from datetime import datetime
@@ -61,6 +61,10 @@ is_answering = False
 conversation_history = []
 MAX_HISTORY = 10  # Keep last 10 exchanges
 
+emoji_laugh = "\U0001F606"
+emoji_sad = "\U0001F62D"
+emoji_thinking = "\U0001F914"
+
 def format_message(role, content):
     return {"role": role, "content": content}
 
@@ -93,15 +97,33 @@ def read_file_content(file_spec):
             # Create metadata and get content
             metadata = f"\nFile: {file_path} (lines {start_line}-{end_line})\n"
             selected_content = content[start_idx:end_idx]
+            print(f"{emoji_laugh} Add file: {file_path} (lines {start_line}-{end_line})\n")
             return metadata + ''.join(selected_content)
     except Exception as e:
-        print(f"Error reading file: {e}")
+        print(f"{emoji_sad} Error reading file: {e}\n")
         return None
 
 def clear_input_buffer():
     # Clear any pending input
     while select.select([sys.stdin], [], [], 0.0)[0]:
         sys.stdin.read(1)
+
+def execute_shell_command(command):
+    """Execute a shell command and return its output"""
+    try:
+        # Execute the command and capture output
+        result = subprocess.run(command, shell=True, text=True, capture_output=True, timeout=30)
+        if result.returncode == 0:
+            print(f"{emoji_laugh} Command Output: {command}\n{result.stdout}")
+            return f"Command Output: {command}\n{result.stdout}"
+        else:
+            print(f"{emoji_thinking} Command Error: {command}\n{result.stderr}")
+            return f"Command Error: {command}\n{result.stderr}"
+    except subprocess.TimeoutExpired:
+        print(f"{emoji_sad} Command timed out after 30 seconds: {command}")
+    except Exception as e:
+        print(f"{emoji_sad} Error executing command: {command}\n{str(e)}")
+    return None
 
 def get_multi_line_input_readline(prompt):
     # Clear any pending input before starting
@@ -110,15 +132,20 @@ def get_multi_line_input_readline(prompt):
     lines = []
     try:
         while True:
-            line = input()
+            line = input().rstrip()  # Remove trailing whitespace
             if line.startswith('@:'):
                 content = read_file_content(line)
                 if content:
                     lines.append(content)
+            elif line.startswith('@`') and line.endswith('`'):
+                # Extract command between backticks
+                command = line[2:-1]
+                output = execute_shell_command(command)
+                if output:
+                    lines.append(output)
             elif line == '':
                 if len(lines) >= 1 and lines[-1] == '\n':
                     break
-                print()
                 lines.append("\n")
             else:
                 lines.append(line+"\n")
