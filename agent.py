@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 
 API_PATH="/home/fg/import/ali_apikey"
+AGENT_MODEL="qwen-max-2025-01-25"
+AGENT_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 # Set UTF-8 encoding
 sys.stdin.reconfigure(encoding='utf-8')
@@ -50,7 +52,7 @@ with open(API_PATH, 'r') as file:
 # OpenAI
 client = OpenAI(
     api_key = my_api_key,
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+    base_url=AGENT_BASE_URL
 )
 
 reasoning_content = ""
@@ -147,6 +149,7 @@ def get_multi_line_input_readline(prompt):
                 if len(lines) >= 1 and lines[-1] == '\n':
                     break
                 lines.append("\n")
+                print()
             else:
                 lines.append(line+"\n")
             # print(lines)
@@ -157,7 +160,8 @@ def get_multi_line_input_readline(prompt):
 while True:
     user_input = get_multi_line_input_readline('\U0001F60A User>> ')
     response_interrupted = False
-    
+    print("\U00002709 Sending...")
+
     # Add user message to history
     conversation_history.append(format_message("user", user_input))
     
@@ -166,7 +170,7 @@ while True:
         conversation_history = conversation_history[-MAX_HISTORY * 2:]
     
     completion = client.chat.completions.create(
-        model="deepseek-v3",  
+        model=AGENT_MODEL,  
         messages=conversation_history,  # Pass the entire conversation history
         stream=True,
     )

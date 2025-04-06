@@ -16,6 +16,11 @@ python agent.py
 ```
 来引用文件内容
 
+可以将 command 的执行结果进行输入
+```
+@`<command line>`
+```
+
 通过 ^C 可以中断正在生成的回复
 
 通过 ^D 可以退出
