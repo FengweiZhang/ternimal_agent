@@ -3,10 +3,32 @@ from openai import OpenAI
 import readline
 from datetime import datetime
 from pathlib import Path
+import configparser
 
-API_PATH="~/import/ali_apikey"
-AGENT_MODEL="qwen-max-2025-01-25"
-AGENT_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+# Get the directory where the script is located
+script_path = Path(__file__).resolve()
+script_dir = script_path.parent
+
+# Read config file from the same directory as the script
+config = configparser.ConfigParser()
+config_path = script_dir / 'config.ini'
+
+if not config_path.exists():
+    print(f"Error: config.ini not found at {config_path}")
+    sys.exit(1)
+
+config.read(config_path)
+
+if 'basic' not in config:
+    print("Error: 'basic' section not found in config.ini")
+    sys.exit(1)
+
+# print("Configuration loaded successfully:")
+# print(config["basic"])
+
+API_PATH=config['basic']['api_key']
+AGENT_MODEL=config['basic']['model']
+AGENT_BASE_URL=config['basic']['base_url']
 
 # Set UTF-8 encoding
 sys.stdin.reconfigure(encoding='utf-8')
@@ -28,8 +50,6 @@ def handle_interrupt(signum, frame):
 signal.signal(signal.SIGQUIT, handle_quit)
 signal.signal(signal.SIGINT, handle_interrupt)
 
-script_path = Path(__file__).resolve()
-script_dir = script_path.parent
 # Create log directory if it doesn't exist
 log_dir = os.path.join(script_dir, 'log')
 os.makedirs(log_dir, exist_ok=True)
