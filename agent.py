@@ -6,7 +6,7 @@ import readline
 from datetime import datetime
 from pathlib import Path
 
-API_PATH="/home/fg/import/ali_apikey"
+API_PATH="~/import/ali_apikey"
 AGENT_MODEL="qwen-max-2025-01-25"
 AGENT_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
 
