@@ -1,5 +1,3 @@
-#!/home/fg/miniconda3/envs/llm/bin/python
-
 import os, signal, sys, select, json, subprocess
 from openai import OpenAI
 import readline
